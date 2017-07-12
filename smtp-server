@@ -1,0 +1,160 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+use IO::Socket::INET;
+use Net::Server::Mail::SMTP;
+use Net::DNS;
+use Geo::IP;
+use Net::Whois::IP;
+use Net::Whois::IANA;
+use Locale::Country;
+use Data::Validate::IP;
+use CHI;
+# use IPC::SysV;
+
+my %blacklist = (
+	'MD' => 1,
+	'RU' => 1,
+	'CN' => 1,
+	'BR' => 1,
+	'UY' => 1,
+	'TR' => 1,
+	'MA' => 1,
+	'VE' => 1,
+	'SA' => 1,
+	'CY' => 1,
+	'CO' => 1,
+	'KR' => 1,
+	'MX' => 1,
+	'IN' => 1,
+	'RS' => 1,
+	'PK' => 1,
+	'TW' => 1,
+);
+
+my $resolver = Net::DNS::Resolver->new();
+my $iana = Net::Whois::IANA->new();
+my $gi = Geo::IP->new(GEOIP_STANDARD);
+
+# Choose your caching mechanism depending on your needs
+# my $cache = CHI->new(
+	# driver => 'File',
+	# root_dir => '/tmp',
+	# namespace => $0,
+# );
+my $cache = CHI->new(driver => 'Memory', datastore => {});
+# my $cache = CHI->new(driver => 'SharedMem', shmkey => IPC::SysV::ftok($0));
+
+my @local_domains = qw(bandsman.co.uk);
+my $server = IO::Socket::INET->new(Listen => 1, LocalPort => 2525, ReuseAddr => 1) or
+	die ("Can't bind to port 2525");
+
+while(my $conn = $server->accept()) {
+	local $SIG{TERM} = $SIG{INT} = $SIG{HUP} = sub {
+		close $conn;
+		$server = undef;
+		exit(1);
+	};
+
+	my $ok = 1;
+	print "Connection from ", $conn->sockhost(), "\n";
+	my $ip = $conn->sockhost();
+	if(is_private_ipv4($ip) || is_loopback_ipv4($ip)) {
+		$ok = 1;
+	} else {
+		my $country = $gi->country_code_by_addr($ip);
+
+		unless($country) {
+			$country = $cache->get($ip);
+		}
+		unless(defined($country)) {
+			# print "$ip: MISS\n";
+			my $whois = Net::Whois::IP::whoisip_query($ip);
+
+			if(defined($whois) && exists($whois->{Country})) {
+				$country = $whois->{Country};
+			}
+
+			if(!defined($country) || ($country !~ /^[A-Z]{2}$/i)) {
+				eval {
+					$iana->whois_query(-ip => $ip);
+				};
+				if($@) {
+					warn $@;
+					$country = undef;
+					# Create new object
+					my $iana = Net::Whois::IANA->new();
+				} else {
+					$country = $iana->country();
+					if($country !~ /^[A-Z]{2}$/i) {
+						$country = undef;
+					}
+				}
+			}
+			$cache->set($ip, $country, '1 week');
+		} else {
+			# print "$ip: HIT\n";
+		}
+
+		if($country) {
+			$country = uc($country);
+			print "$ip: $country\n";
+			if(exists($blacklist{$country})) {
+				$country = code2country($country);
+				warn("We don't accept emails from $country");
+				print $conn 554, "5.7.1", "We don't accept emails from $country\n";
+				$ok = 0;
+			}
+		} else {
+			warn("Can't determine the country for IP $ip");
+			# Should tempfail with 220 in connect(), however
+			# Sendmail::PMilter forces the argument to be 4xx or 5xx
+			# $ctx->setreply(220, '4.7.1', "Can't determine the country for IP $ip");
+			print $conn 451, '4.7.1', "Can't determine the country for IP $ip\n";
+			# In the realworld, there is an argument for REJECT here
+			$ok = 0;
+		}
+	}
+
+	next if(!$ok);
+
+	my $smtp = Net::Server::Mail::SMTP->new( socket => $conn );
+	$smtp->set_callback(RCPT => \&validate_recipient);
+	$smtp->set_callback(DATA => \&queue_message);
+	$smtp->process();
+	$conn->close();
+}
+
+sub validate_recipient {
+	my($session, $recipient) = @_;
+	
+	my $domain;
+	if($recipient =~ /@(.*)>\s*$/) {
+		$domain = $1;
+	}
+
+	if(not defined $domain) {
+		return(0, 513, 'Syntax error.');
+	} elsif(not(grep $domain eq $_, @local_domains)) {
+		return(0, 554, "$recipient: Recipient address rejected: Relay access denied");
+	}
+
+	return(1);
+}
+
+sub queue_message
+{
+	my($session, $data) = @_;
+
+	my $sender = $session->get_sender();
+	my @recipients = $session->get_recipients();
+
+	return(0, 554, 'Error: no valid recipients')
+		unless(@recipients);
+	
+	my $msgid = add_queue($sender, \@recipients, $data)
+	  or return(0);
+
+	return(1, 250, "message queued $msgid");
+}
