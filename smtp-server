@@ -1,9 +1,26 @@
 #!/usr/bin/env perl
 
+# Author Nigel Horne: njh@bandsman.co.uk
+# Copyright (C) 2017, Nigel Horne
+
+# Usage is subject to licence terms.
+# The licence terms of this software are as follows:
+# Personal single user, single computer use: GPL2
+# All other users (including Commercial, Charity, Educational, Government)
+#	must apply in writing for a licence for use from Nigel Horne at the
+#	above e-mail.
+
+# Simple SMTP Proxy
+# Blocks e-mails from certain countries.
+# Accepts e-mails for a number of domains, and forwards to one main domain
+# TODO: put through ClamAV and SpamAssassin, verify SPF and DKIM
+# TODO: forward spams to catch-all address
+
 use strict;
 use warnings;
 use IO::Socket::INET;
 use Net::Server::Mail::SMTP;
+use Net::SMTP;
 use Net::DNS;
 use Geo::IP;
 use Net::Whois::IP;
@@ -11,46 +28,36 @@ use Net::Whois::IANA;
 use Locale::Country;
 use Data::Validate::IP;
 use CHI;
+use Mail::Address;
 # use IPC::SysV;
 use Sys::Syslog qw(:standard :macros);
+use Config::Auto;
 
-my %blacklist = (
-	'MD' => 1,
-	'RU' => 1,
-	'CN' => 1,
-	'BR' => 1,
-	'UY' => 1,
-	'TR' => 1,
-	'MA' => 1,
-	'VE' => 1,
-	'SA' => 1,
-	'CY' => 1,
-	'CO' => 1,
-	'KR' => 1,
-	'MX' => 1,
-	'IN' => 1,
-	'RS' => 1,
-	'PK' => 1,
-	'TW' => 1,
-);
-
-my @local_domains = qw(bandsman.co.uk concert-bands.co.uk nigelhorne.com nigelhorne.force9.co.uk);
-
+# These can also go in the configuration file
 my %usernames = (
-	'njh' => 'njh',
-	'postmaster' => 'njh',
-	'webmaster' => 'njh',
-	'bbportal' => 'njh',
-	'cbportal' => 'njh',
-	'root' => 'njh',
-	'sharon' => 'sharon'
+	'root' => 'njh',	# Forward e-mails to this recipient
+	'njh' => 'njh',		# Must have something like this to allow this recipient
 );
 
 openlog 'MAIL', 'cons,pid', 'user';
 
+my $ca = Config::Auto->new();
+my $config = $ca->parse();
+
+my @local_domains = $config->{'main'}->{'local_domains'};
+my $masquerade_as = $config->{'main'}->{'masquerade_as'};
+my $forward_to = $config->{'main'}->{'forward_to'} or die 'Set forward_to in ' . $ca->file();
+
+my %deny_country;
+
+# use Data::Dumper;
+# print Data::Dumper->new([$config])->Dump();
+
 my $resolver = Net::DNS::Resolver->new();
 my $iana = Net::Whois::IANA->new();
-my $gi = Geo::IP->new(GEOIP_STANDARD);
+my $gi;
+
+eval { $gi = Geo::IP->new(GEOIP_STANDARD) };
 
 # Choose your caching mechanism depending on your needs
 # my $cache = CHI->new(
@@ -64,6 +71,7 @@ my $cache = CHI->new(driver => 'Memory', datastore => {});
 if(open(my $aliases, '<', '/etc/aliases')) {
 	while(<$aliases>) {
 		next if(/^#/);
+		chomp;
 		my @alias = split(/:\s*/, $_, 2);
 		if(scalar(@alias) == 2) {
 			if($alias[1] =~ /"(.+)"/) {
@@ -74,6 +82,22 @@ if(open(my $aliases, '<', '/etc/aliases')) {
 		}
 	}
 }
+
+if($config->{'aliases'}) {
+	foreach my $user(keys %{$config->{'aliases'}}) {
+		$usernames{$user} = $config->{'aliases'}->{$user};
+	}
+}
+
+# print Data::Dumper->new([\%usernames])->Dump();
+
+if(scalar($config->{'countries'})) {
+	foreach my $country (keys %{$config->{'countries'}}) {
+		$deny_country{$country} = $config->{'countries'}->{$country};
+	}
+}
+
+# print Data::Dumper->new([\%deny_country])->Dump();
 
 my $server = IO::Socket::INET->new(Listen => 1, LocalPort => 2525, ReuseAddr => 1) or
 	die ("Can't bind to port 2525");
@@ -87,13 +111,13 @@ while(my $conn = $server->accept()) {
 	};
 
 	my $ok = 1;
-	print "Connection from ", $conn->sockhost(), "\n";
+	# print "Connection from ", $conn->sockhost(), "\n";
 	syslog(LOG_INFO, "Connection from " . $conn->sockhost() . "\n");
 
 	my $ip = $conn->sockhost();
 	if(is_private_ipv4($ip) || is_loopback_ipv4($ip)) {
 		$ok = 1;
-	} else {
+	} elsif(scalar(keys(%deny_country))) {
 		my $country = $gi->country_code_by_addr($ip);
 
 		unless($country) {
@@ -131,7 +155,7 @@ while(my $conn = $server->accept()) {
 		if($country) {
 			$country = uc($country);
 			print "$ip: $country\n";
-			if(exists($blacklist{$country})) {
+			if(exists($deny_country{$country})) {
 				$country = code2country($country);
 				warn("We don't accept emails from $country");
 				print $conn 554, "5.7.1", "We don't accept emails from $country\n";
@@ -160,19 +184,18 @@ while(my $conn = $server->accept()) {
 sub validate_recipient {
 	my($session, $recipient) = @_;
 	
-	my $domain;
-	if($recipient =~ /@(.*)>\s*$/) {
-		$domain = $1;
-	}
+	my @address = Mail::Address->parse($recipient);
+	my $domain = $address[0]->host();
 
 	if(not defined $domain) {
 		return(0, 513, 'Syntax error.');
-	} elsif(not(grep $domain eq $_, @local_domains)) {
+	} elsif(scalar(@local_domains) && (not(grep $domain eq $_, @local_domains))) {
 		return(0, 554, "$recipient: Recipient address rejected: Relay access denied");
 	}
 
-	if(!defined($usernames{$recipient})) {
-		return(0, 554, "$recipient: Recipient address rejected: Unknown user");
+	my $user = $address[0]->user();
+	if(!defined($usernames{$user})) {
+		return(0, 554, "$user: Recipient address rejected: Unknown user");
 	}
 
 	return(1);
@@ -186,18 +209,35 @@ sub queue_message
 	my @recipients = $session->get_recipients();
 
 	return(0, 554, 'Error: no valid recipients')
-		unless(@recipients);
+		unless(scalar(@recipients));
 	
-	foreach my $recipient(@recipients) {
-		$recipient = $usernames{$recipient};
+	my $smtp = Net::SMTP->new('mailgw');
 
-		if($recipient =~ /^\|.+/) {
-			return(0, 451, "$recipient: piped output not yet supported, try again later");
+	$smtp->mail($sender);
+
+	foreach my $recipient(@recipients) {
+		if($masquerade_as) {
+			my @address = Mail::Address->parse($recipient);
+			$recipient = $usernames{$address[0]->user()};
+
+			if($recipient =~ /^\|.+/) {
+				return(0, 451, "$recipient: piped output not yet supported, try again later");
+			}
+			$smtp->recipient("$recipient\@$masquerade_as") or return(0, 471, "Temporary problem sending to $recipient, try again later");
+		} else {
+			$smtp->recipient($recipient) or return(0, 554, "Can't send to $recipient");
 		}
 	}
 
-	my $msgid = add_queue($sender, \@recipients, $data)
-	  or return(0);
+	$smtp->data($$data) or return(0, 554, 'Something went wrong');
 
-	return(1, 250, "message queued $msgid");
+	$smtp->quit();
+
+	# my $msgid = add_queue($sender, \@recipients, $data)
+	  # or return(0);
+
+	# return(1, 250, "message queued $msgid");
+
+	syslog(LOG_INFO, 'message sent');
+	return(1, 250, 'message sent');
 }
