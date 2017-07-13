@@ -12,6 +12,7 @@ use Locale::Country;
 use Data::Validate::IP;
 use CHI;
 # use IPC::SysV;
+use Sys::Syslog qw(:standard :macros);
 
 my %blacklist = (
 	'MD' => 1,
@@ -33,6 +34,20 @@ my %blacklist = (
 	'TW' => 1,
 );
 
+my @local_domains = qw(bandsman.co.uk concert-bands.co.uk nigelhorne.com nigelhorne.force9.co.uk);
+
+my %usernames = (
+	'njh' => 'njh',
+	'postmaster' => 'njh',
+	'webmaster' => 'njh',
+	'bbportal' => 'njh',
+	'cbportal' => 'njh',
+	'root' => 'njh',
+	'sharon' => 'sharon'
+);
+
+openlog 'MAIL', 'cons,pid', 'user';
+
 my $resolver = Net::DNS::Resolver->new();
 my $iana = Net::Whois::IANA->new();
 my $gi = Geo::IP->new(GEOIP_STANDARD);
@@ -46,7 +61,20 @@ my $gi = Geo::IP->new(GEOIP_STANDARD);
 my $cache = CHI->new(driver => 'Memory', datastore => {});
 # my $cache = CHI->new(driver => 'SharedMem', shmkey => IPC::SysV::ftok($0));
 
-my @local_domains = qw(bandsman.co.uk);
+if(open(my $aliases, '<', '/etc/aliases')) {
+	while(<$aliases>) {
+		next if(/^#/);
+		my @alias = split(/:\s*/, $_, 2);
+		if(scalar(@alias) == 2) {
+			if($alias[1] =~ /"(.+)"/) {
+				$usernames{$alias[0]} = $1;
+			} else {
+				$usernames{$alias[0]} = $alias[1];
+			}
+		}
+	}
+}
+
 my $server = IO::Socket::INET->new(Listen => 1, LocalPort => 2525, ReuseAddr => 1) or
 	die ("Can't bind to port 2525");
 
@@ -54,11 +82,14 @@ while(my $conn = $server->accept()) {
 	local $SIG{TERM} = $SIG{INT} = $SIG{HUP} = sub {
 		close $conn;
 		$server = undef;
+		syslog(LOG_INFO, 'shutting down');
 		exit(1);
 	};
 
 	my $ok = 1;
 	print "Connection from ", $conn->sockhost(), "\n";
+	syslog(LOG_INFO, "Connection from " . $conn->sockhost() . "\n");
+
 	my $ip = $conn->sockhost();
 	if(is_private_ipv4($ip) || is_loopback_ipv4($ip)) {
 		$ok = 1;
@@ -140,6 +171,10 @@ sub validate_recipient {
 		return(0, 554, "$recipient: Recipient address rejected: Relay access denied");
 	}
 
+	if(!defined($usernames{$recipient})) {
+		return(0, 554, "$recipient: Recipient address rejected: Unknown user");
+	}
+
 	return(1);
 }
 
@@ -153,6 +188,14 @@ sub queue_message
 	return(0, 554, 'Error: no valid recipients')
 		unless(@recipients);
 	
+	foreach my $recipient(@recipients) {
+		$recipient = $usernames{$recipient};
+
+		if($recipient =~ /^\|.+/) {
+			return(0, 451, "$recipient: piped output not yet supported, try again later");
+		}
+	}
+
 	my $msgid = add_queue($sender, \@recipients, $data)
 	  or return(0);
 
