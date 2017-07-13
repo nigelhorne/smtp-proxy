@@ -207,7 +207,12 @@ sub queue_message
 	return(0, 554, 'Error: no valid recipients')
 		unless(scalar(@recipients));
 	
-	my $smtp = Net::SMTP->new('mailgw');
+	my $smtp;
+	if($forward_to =~ /(.+):(\d+)/) {
+		$smtp = Net::SMTP->new(PeerAddr => $1, PeerPort => $2);
+	} else {
+		$smtp = Net::SMTP->new($forward_to);
+	}
 
 	$smtp->mail($sender);
 
