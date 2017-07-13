@@ -168,12 +168,12 @@ while(my $conn = $server->accept()) {
 		}
 	}
 
-	next if(!$ok);
-
-	my $smtp = Net::Server::Mail::SMTP->new( socket => $conn );
-	$smtp->set_callback(RCPT => \&validate_recipient);
-	$smtp->set_callback(DATA => \&queue_message);
-	$smtp->process();
+	if($ok) {
+		my $smtp = Net::Server::Mail::SMTP->new( socket => $conn );
+		$smtp->set_callback(RCPT => \&validate_recipient);
+		$smtp->set_callback(DATA => \&queue_message);
+		$smtp->process();
+	}
 	$conn->close();
 }
 
