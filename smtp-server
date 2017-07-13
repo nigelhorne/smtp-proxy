@@ -40,7 +40,7 @@ openlog 'MAIL', 'cons,pid', 'user';
 my $ca = Config::Auto->new();
 my $config = $ca->parse();
 
-my @local_domains = $config->{'main'}->{'local_domains'};
+my @local_domains = @{$config->{'main'}->{'local_domains'}};
 my $masquerade_as = $config->{'main'}->{'masquerade_as'};
 my $forward_to = $config->{'main'}->{'forward_to'} or die 'Set forward_to in ' . $ca->file();
 
@@ -48,6 +48,7 @@ my %deny_country;
 
 # use Data::Dumper;
 # print Data::Dumper->new([$config])->Dump();
+# print Data::Dumper->new([@local_domains])->Dump();
 
 my $resolver = Net::DNS::Resolver->new();
 my $iana = Net::Whois::IANA->new();
@@ -94,6 +95,13 @@ if(scalar($config->{'countries'})) {
 }
 
 # print Data::Dumper->new([\%deny_country])->Dump();
+my $clamav;
+if($config->{'main'}->{'clamav'}) {
+	$clamav = ClamAV::Client->new(socket_name => $config->{'main'}->{'clamav'});
+	if(!$clamav->ping()) {
+		die "Can't talk to ClamAV on " . $config->{'main'}->{'clamav'};
+	}
+}
 
 my $server = IO::Socket::INET->new(Listen => 1, LocalPort => 2525, ReuseAddr => 1) or
 	die ("Can't bind to port 2525");
@@ -179,14 +187,14 @@ while(my $conn = $server->accept()) {
 
 sub validate_recipient {
 	my($session, $recipient) = @_;
-	
+
 	my @address = Mail::Address->parse($recipient);
 	my $domain = $address[0]->host();
 
 	if(not defined $domain) {
 		return(0, 513, 'Syntax error.');
-	} elsif(scalar(@local_domains) && (not(grep $domain eq $_, @local_domains))) {
-		return(0, 554, "$recipient: Recipient address rejected: Relay access denied");
+	} elsif(scalar(@local_domains) && (grep($_ eq $domain, @local_domains) == 0)) {
+		return(0, 554, "$recipient: Recipient address rejected: Relay access denied to '$domain'");
 	}
 
 	my $user = $address[0]->user();
@@ -206,12 +214,23 @@ sub queue_message
 
 	return(0, 554, 'Error: no valid recipients')
 		unless(scalar(@recipients));
-	
+
+	if($clamav) {
+		my $d = "From: $sender\n" . join("\n", map { 'To: ' . $_ . "\n" } @recipients) . "\n" . $$data;
+
+		if(my $virus = $clamav->scan_scalar(\$d)) {
+			return(0, 554, "Not forwarding your spam or virus");
+		}
+	}
+
 	my $smtp;
 	if($forward_to =~ /(.+):(\d+)/) {
 		$smtp = Net::SMTP->new(PeerAddr => $1, PeerPort => $2);
 	} else {
 		$smtp = Net::SMTP->new($forward_to);
+	}
+	if(!defined($smtp)) {
+		return(0, 471, "Temporary problem connecting to $forward_to, try again later");
 	}
 
 	$smtp->mail($sender);
