@@ -1,10 +1,11 @@
 # Simple SMTP Proxy
-- Blocks e-mails from certain countries.
-- Accepts e-mails for a number of domains, and forwards to one main domain
+- Blocks e-mails from certain countries;
+- Accepts e-mails for a number of domains, and forwards to one main domain.
 
 # TODO 
-- TODO: put through ClamAV and SpamAssassin, verify SPF and DKIM
-- TODO: forward spams to catch-all address
+- Put through ClamAV and SpamAssassin, verify SPF and DKIM;
+- Forward spams to catch-all address;
+- Only allow connections from a list of given IP addresses.
 
 # AUTHOR
 Nigel Horne, `<njh at bandsman.co.uk>`

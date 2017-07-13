@@ -1,5 +1,7 @@
 #!/usr/bin/env perl
 
+# Simple SMTP Proxy
+
 # Author Nigel Horne: njh@bandsman.co.uk
 # Copyright (C) 2017, Nigel Horne
 
@@ -9,12 +11,6 @@
 # All other users (including Commercial, Charity, Educational, Government)
 #	must apply in writing for a licence for use from Nigel Horne at the
 #	above e-mail.
-
-# Simple SMTP Proxy
-# Blocks e-mails from certain countries.
-# Accepts e-mails for a number of domains, and forwards to one main domain
-# TODO: put through ClamAV and SpamAssassin, verify SPF and DKIM
-# TODO: forward spams to catch-all address
 
 use strict;
 use warnings;
