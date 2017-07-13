@@ -8,11 +8,13 @@ os:
   # - docker
 
 perl:
-  - "5.26-extras"
-  - "5.24-extras"
-  - "5.22-extras"
-  - "5.20-extras"
-  - "5.18-extras"
+  - "5.26"
+  - "5.24"
+  - "5.22"
+  - "5.20"
+  - "5.18"
+  - "5.16"
+  - "5.14"
 
 install:
   - cpanm --skip-satisfied -n -q Config::Auto warnings::unused IO::Socket::INET Net::Server::Mail::SMTP Net::SMTP Net::DNS Geo::IP Net::Whois::IP Net::Whois::IANA Locale::Country Data::Validate::IP CHI Mail::Address Sys::Syslog B::Lint
