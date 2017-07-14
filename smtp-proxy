@@ -165,7 +165,7 @@ while(my $conn = $server->accept()) {
 			if(exists($deny_country{$country})) {
 				$country = code2country($country);
 				warn("We don't accept emails from $country");
-				syslog(LOG_INFo, "Blocked e-mail from $country");
+				syslog(LOG_INFO, "Blocked e-mail from $country");
 				print $conn 554, "5.7.1", "We don't accept emails from $country\n";
 				$ok = 0;
 			}
@@ -199,13 +199,13 @@ sub validate_recipient {
 	if(not defined $domain) {
 		return(0, 513, 'Syntax error.');
 	} elsif(scalar(@local_domains) && (grep($_ eq $domain, @local_domains) == 0)) {
-		syslog(SYS_INFO, "$recipient: Recipient address rejected: Relay access denied to '$domain'");
+		syslog(LOG_INFO, "$recipient: Recipient address rejected: Relay access denied to '$domain'");
 		return(0, 554, "$recipient: Recipient address rejected: Relay access denied to '$domain'");
 	}
 
 	my $user = $address[0]->user();
 	if(!defined($usernames{$user})) {
-		syslog(SYS_INFO, "$user: Recipient address rejected: Unknown user");
+		syslog(LOG_INFO, "$user: Recipient address rejected: Unknown user");
 		return(0, 554, "$user: Recipient address rejected: Unknown user");
 	}
 
@@ -225,7 +225,7 @@ sub queue_message
 	my $email = "From: $sender\n" . join("\n", map { 'To: ' . $_ . "\n" } @recipients) . "\n" . $$data;
 	if($clamav) {
 		if(my $virus = $clamav->scan_scalar(\$email)) {
-			syslog(SYS_INFO, "ClamAV prevented acceptance");
+			syslog(LOG_INFO, "ClamAV prevented acceptance");
 			return(0, 554, "Not forwarding your spam or virus");
 		}
 	}
@@ -234,7 +234,7 @@ sub queue_message
 		print $pout $email;
 		close $pout;
 		if($?) {
-			syslog(SYS_INFO, "Spamassassin prevented acceptance");
+			syslog(LOG_INFO, "Spamassassin prevented acceptance");
 			return(0, 554, "Not forwarding your spam or virus");
 		}
 	}
@@ -245,7 +245,7 @@ sub queue_message
 		$dkim->CLOSE();
 
 		if($dkim->result() eq 'fail') {
-			syslog(SYS_INFO, "DKIM result: " . $dkim_result());
+			syslog(LOG_INFO, "DKIM result: " . $dkim->result());
 			return(0, 554, "Not forwarding your spam or virus");
 		}
 	}
@@ -257,7 +257,7 @@ sub queue_message
 		$smtp = Net::SMTP->new($forward_to);
 	}
 	if(!defined($smtp)) {
-		syslog(SYS_ERR, "Can't connect to $forward_to");
+		syslog(LOG_ERR, "Can't connect to $forward_to");
 		return(0, 471, "Temporary problem connecting to $forward_to, try again later");
 	}
 
