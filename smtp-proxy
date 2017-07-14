@@ -38,6 +38,8 @@ my %usernames = (
 
 openlog 'smtp-proxy', 'cons,pid', 'user';
 
+syslog(LOG_INFO, 'Starting up');
+
 my $ca = Config::Auto->new();
 my $config = $ca->parse();
 
@@ -114,7 +116,7 @@ while(my $conn = $server->accept()) {
 	local $SIG{TERM} = $SIG{INT} = $SIG{HUP} = sub {
 		close $conn;
 		$server = undef;
-		syslog(LOG_INFO, 'shutting down');
+		syslog(LOG_INFO, 'Shutting down');
 		exit(1);
 	};
 
