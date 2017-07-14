@@ -36,7 +36,7 @@ my %usernames = (
 	'njh' => 'njh',		# Must have something like this to allow this recipient
 );
 
-openlog 'MAIL', 'cons,pid', 'user';
+openlog 'mail', 'cons,pid', 'user';
 
 my $ca = Config::Auto->new();
 my $config = $ca->parse();
