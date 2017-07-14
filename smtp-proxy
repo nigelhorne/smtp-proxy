@@ -105,12 +105,9 @@ if($config->{'main'}->{'clamav'}) {
 }
 
 my $spamassassin = $config->{'main'}->{'spamassassin'};
-if(! -x $spamassassin) {
-	die "$spamassassin: not executable";
-}
 
-my $server = IO::Socket::INET->new(Listen => 1, LocalPort => 2525, ReuseAddr => 1) or
-	die ("Can't bind to port 2525");
+my $server = IO::Socket::INET->new(Listen => 1, LocalPort => 25, ReuseAddr => 1) or
+	die ("Can't bind to port 25");
 
 while(my $conn = $server->accept()) {
 	local $SIG{TERM} = $SIG{INT} = $SIG{HUP} = sub {
@@ -168,6 +165,7 @@ while(my $conn = $server->accept()) {
 			if(exists($deny_country{$country})) {
 				$country = code2country($country);
 				warn("We don't accept emails from $country");
+				syslog(LOG_INFo, "Blocked e-mail from $country");
 				print $conn 554, "5.7.1", "We don't accept emails from $country\n";
 				$ok = 0;
 			}
@@ -176,6 +174,7 @@ while(my $conn = $server->accept()) {
 			# Should tempfail with 220 in connect(), however
 			# Sendmail::PMilter forces the argument to be 4xx or 5xx
 			# $ctx->setreply(220, '4.7.1', "Can't determine the country for IP $ip");
+			syslog(LOG_ERR, "Can't determine the country for $ip");
 			print $conn 451, '4.7.1', "Can't determine the country for IP $ip\n";
 			# In the realworld, there is an argument for REJECT here
 			$ok = 0;
@@ -200,11 +199,13 @@ sub validate_recipient {
 	if(not defined $domain) {
 		return(0, 513, 'Syntax error.');
 	} elsif(scalar(@local_domains) && (grep($_ eq $domain, @local_domains) == 0)) {
+		syslog(SYS_INFO, "$recipient: Recipient address rejected: Relay access denied to '$domain'");
 		return(0, 554, "$recipient: Recipient address rejected: Relay access denied to '$domain'");
 	}
 
 	my $user = $address[0]->user();
 	if(!defined($usernames{$user})) {
+		syslog(SYS_INFO, "$user: Recipient address rejected: Unknown user");
 		return(0, 554, "$user: Recipient address rejected: Unknown user");
 	}
 
@@ -224,6 +225,7 @@ sub queue_message
 	my $email = "From: $sender\n" . join("\n", map { 'To: ' . $_ . "\n" } @recipients) . "\n" . $$data;
 	if($clamav) {
 		if(my $virus = $clamav->scan_scalar(\$email)) {
+			syslog(SYS_INFO, "ClamAV prevented acceptance");
 			return(0, 554, "Not forwarding your spam or virus");
 		}
 	}
@@ -232,6 +234,7 @@ sub queue_message
 		print $pout $email;
 		close $pout;
 		if($?) {
+			syslog(SYS_INFO, "Spamassassin prevented acceptance");
 			return(0, 554, "Not forwarding your spam or virus");
 		}
 	}
@@ -242,6 +245,7 @@ sub queue_message
 		$dkim->CLOSE();
 
 		if($dkim->result() eq 'fail') {
+			syslog(SYS_INFO, "DKIM result: " . $dkim_result());
 			return(0, 554, "Not forwarding your spam or virus");
 		}
 	}
@@ -253,6 +257,7 @@ sub queue_message
 		$smtp = Net::SMTP->new($forward_to);
 	}
 	if(!defined($smtp)) {
+		syslog(SYS_ERR, "Can't connect to $forward_to");
 		return(0, 471, "Temporary problem connecting to $forward_to, try again later");
 	}
 
