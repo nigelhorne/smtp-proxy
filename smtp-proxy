@@ -28,6 +28,7 @@ use Mail::Address;
 # use IPC::SysV;
 use Sys::Syslog qw(:standard :macros);
 use Config::Auto;
+use Mail::DKIM::Verifier;
 
 # These can also go in the configuration file
 my %usernames = (
@@ -231,6 +232,16 @@ sub queue_message
 		print $pout $email;
 		close $pout;
 		if($?) {
+			return(0, 554, "Not forwarding your spam or virus");
+		}
+	}
+
+	if($config->{'main'}->{'enable_dkim'}) {
+		my $dkim = Mail::DKIM::Verifier->new();
+		$dkim->PRINT($email);
+		$dkim->CLOSE();
+
+		if($dkim->result() ne 'pass') {
 			return(0, 554, "Not forwarding your spam or virus");
 		}
 	}

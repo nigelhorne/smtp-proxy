@@ -1,11 +1,13 @@
 # Simple SMTP Proxy
 - Blocks e-mails from certain countries;
 - Accepts e-mails for a number of domains, and forwards to one main domain;
-- Checks e-mails via ClamAV.
-- Checks e-mails via SpamAssassin
+- Checks e-mails via ClamAV;
+- Checks e-mails via SpamAssassin;
+- Checks DKIM validity
 
 # TODO 
-- Verify SPF and DKIM;
+- Verify SPF (needs a means within Net::Server::Mail::SMTP to get both the sender and the connecting IP address in the same
+  callback);
 - Support TCP connections to ClamAV;
 - Forward spams and viruses to catch-all address;
 - Only allow connections from a list of IP addresses.

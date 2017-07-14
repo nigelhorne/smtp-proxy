@@ -17,7 +17,7 @@ perl:
   - "5.14"
 
 install:
-  - cpanm --skip-satisfied -n -q Config::Auto warnings::unused IO::Socket::INET Net::Server::Mail::SMTP Net::SMTP Net::DNS Geo::IP Net::Whois::IP Net::Whois::IANA Locale::Country Data::Validate::IP CHI Mail::Address Sys::Syslog B::Lint
+  - cpanm --skip-satisfied -n -q Config::Auto warnings::unused IO::Socket::INET Net::Server::Mail::SMTP Net::SMTP Net::DNS Geo::IP Net::Whois::IP Net::Whois::IANA Locale::Country Data::Validate::IP CHI Mail::Address Sys::Syslog B::Lint Mail::DKIM::Verifier
 
 script:
   - perl -MO=Lint ./smtp-proxy
