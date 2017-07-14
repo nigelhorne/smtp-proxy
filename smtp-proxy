@@ -257,12 +257,8 @@ sub forward_message
 		}
 	}
 
-	my $smtp;
-	if($forward_to =~ /(.+):(\d+)/) {
-		$smtp = Net::SMTP->new(Host => $1, PeerPort => $2);
-	} else {
-		$smtp = Net::SMTP->new($forward_to);
-	}
+	my $smtp = Net::SMTP->new($forward_to);
+
 	if(!defined($smtp)) {
 		syslog(LOG_ERR, "Can't connect to $forward_to");
 		return(0, 471, "Temporary problem connecting to $forward_to, try again later");
@@ -271,6 +267,8 @@ sub forward_message
 	$smtp->mail($sender);
 
 	foreach my $recipient(@recipients) {
+		syslog(LOG_INFO, "Requested to send to $recipient");
+
 		if(scalar(@pass_through) && grep($_ eq $recipient, @pass_through)) {
 			$smtp->recipient($recipient);
 		} elsif($masquerade_as) {
