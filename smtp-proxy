@@ -241,7 +241,7 @@ sub queue_message
 		$dkim->PRINT($email);
 		$dkim->CLOSE();
 
-		if($dkim->result() ne 'pass') {
+		if($dkim->result() eq 'fail') {
 			return(0, 554, "Not forwarding your spam or virus");
 		}
 	}
