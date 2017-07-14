@@ -277,8 +277,11 @@ sub forward_message
 			my @address = Mail::Address->parse($recipient);
 			$recipient = $usernames{$address[0]->user()};
 
-			if($recipient =~ /^\|.+/) {
+			if($recipient =~ /^\|.+/) {	# TODO
 				return(0, 451, "$recipient: piped output not yet supported, try again later");
+			}
+			if($recipient =~ /^>.+/) {	# TODO
+				return(0, 451, "$recipient: file output not yet supported, try again later");
 			}
 			$smtp->recipient("$recipient\@$masquerade_as") or return(0, 471, "Temporary problem sending to $recipient, try again later");
 		} else {
