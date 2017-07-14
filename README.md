@@ -2,9 +2,10 @@
 - Blocks e-mails from certain countries;
 - Accepts e-mails for a number of domains, and forwards to one main domain;
 - Checks e-mails via ClamAV.
+- Checks e-mails via SpamAssassin
 
 # TODO 
-- Put through SpamAssassin, verify SPF and DKIM;
+- Verify SPF and DKIM;
 - Support TCP connections to ClamAV;
 - Forward spams and viruses to catch-all address;
 - Only allow connections from a list of IP addresses.

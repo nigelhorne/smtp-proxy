@@ -103,6 +103,11 @@ if($config->{'main'}->{'clamav'}) {
 	}
 }
 
+my $spamassassin = $config->{'main'}->{'spamassassin'};
+if(! -x $spamassassin) {
+	die "$spamassassin: not executable";
+}
+
 my $server = IO::Socket::INET->new(Listen => 1, LocalPort => 2525, ReuseAddr => 1) or
 	die ("Can't bind to port 2525");
 
@@ -215,10 +220,17 @@ sub queue_message
 	return(0, 554, 'Error: no valid recipients')
 		unless(scalar(@recipients));
 
+	my $email = "From: $sender\n" . join("\n", map { 'To: ' . $_ . "\n" } @recipients) . "\n" . $$data;
 	if($clamav) {
-		my $d = "From: $sender\n" . join("\n", map { 'To: ' . $_ . "\n" } @recipients) . "\n" . $$data;
+		if(my $virus = $clamav->scan_scalar(\$email)) {
+			return(0, 554, "Not forwarding your spam or virus");
+		}
+	}
 
-		if(my $virus = $clamav->scan_scalar(\$d)) {
+	if($spamassassin && open(my $pout, '|-', $spamassassin)) {
+		print $pout $email;
+		close $pout;
+		if($?) {
 			return(0, 554, "Not forwarding your spam or virus");
 		}
 	}

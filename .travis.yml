@@ -20,5 +20,5 @@ install:
   - cpanm --skip-satisfied -n -q Config::Auto warnings::unused IO::Socket::INET Net::Server::Mail::SMTP Net::SMTP Net::DNS Geo::IP Net::Whois::IP Net::Whois::IANA Locale::Country Data::Validate::IP CHI Mail::Address Sys::Syslog B::Lint
 
 script:
-  - perl -MO=Lint ./smtp-server
-  - perl -c -Mwarnings::unused ./smtp-server
+  - perl -MO=Lint ./smtp-proxy
+  - perl -c -Mwarnings::unused ./smtp-proxy
