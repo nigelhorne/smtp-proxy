@@ -1,4 +1,14 @@
 # Simple SMTP Proxy
+
+This program was put in place to work around ISPs who block outgoing port 25 for all their customers,
+even those not running COTS systems.  I use this in conjunction with a cloud based machine that runs
+https://github.com/vakuum/tcptunnel listening to port 2525 for connections only from my home network and then forwards
+all TCP traffic to Sendmail listing locally on port 25. That Sendmail can the send out all e-mails.
+
+    MUA (on each machine on my LAN) -25-> smtp_proxy (on a machine labelled as a smart_host) -2525-> tcptunnel (on an Internet host) -25-> sendmail (on the same host) -25-> recipient SMTP machines
+
+With this you can now set-up your home machine as a secondary MX.
+
 - Blocks e-mails from certain countries;
 - Accepts e-mails for a number of domains, and forwards to one main domain;
 - Checks e-mails via ClamAV;
