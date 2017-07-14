@@ -4,6 +4,7 @@
 - Checks e-mails via ClamAV;
 - Checks e-mails via SpamAssassin;
 - Checks DKIM validity
+- Passthrough e-mails which will not be munged into the masquerade domain, useful to proxies sending to the outside world
 
 # TODO 
 - Verify SPF (needs a means within Net::Server::Mail::SMTP to get both the sender and the connecting IP address in the same

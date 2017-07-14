@@ -44,6 +44,7 @@ my $config = $ca->parse();
 my @local_domains = @{$config->{'main'}->{'local_domains'}};
 my $masquerade_as = $config->{'main'}->{'masquerade_as'};
 my $forward_to = $config->{'main'}->{'forward_to'} or die 'Set forward_to in ' . $ca->file();
+my @pass_through = @{$config->{'main'}->{'pass_through'}};
 
 my %deny_country;
 
@@ -184,7 +185,7 @@ while(my $conn = $server->accept()) {
 	if($ok) {
 		my $smtp = Net::Server::Mail::SMTP->new( socket => $conn );
 		$smtp->set_callback(RCPT => \&validate_recipient);
-		$smtp->set_callback(DATA => \&queue_message);
+		$smtp->set_callback(DATA => \&forward_message);
 		$smtp->process();
 	}
 	$conn->close();
@@ -194,6 +195,11 @@ sub validate_recipient {
 	my($session, $recipient) = @_;
 
 	my @address = Mail::Address->parse($recipient);
+
+	if(scalar(@pass_through) && grep($_ eq $recipient, @pass_through)) {
+		return(1);
+	}
+
 	my $domain = $address[0]->host();
 
 	if(not defined $domain) {
@@ -212,7 +218,7 @@ sub validate_recipient {
 	return(1);
 }
 
-sub queue_message
+sub forward_message
 {
 	my($session, $data) = @_;
 
@@ -264,7 +270,9 @@ sub queue_message
 	$smtp->mail($sender);
 
 	foreach my $recipient(@recipients) {
-		if($masquerade_as) {
+		if(scalar(@pass_through) && grep($_ eq $recipient, @pass_through)) {
+			$smtp->recipient($recipient);
+		} elsif($masquerade_as) {
 			my @address = Mail::Address->parse($recipient);
 			$recipient = $usernames{$address[0]->user()};
 
