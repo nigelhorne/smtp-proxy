@@ -41,10 +41,10 @@ openlog 'smtp-proxy', 'cons,pid', 'user';
 my $ca = Config::Auto->new();
 my $config = $ca->parse();
 
-my @local_domains = @{$config->{'main'}->{'local_domains'}};
+my @local_domains = @{$config->{'main'}->{'local_domains'}};	# FIXME: if there's only one it won't be an array ref
 my $masquerade_as = $config->{'main'}->{'masquerade_as'};
 my $forward_to = $config->{'main'}->{'forward_to'} or die 'Set forward_to in ' . $ca->file();
-my @pass_through = @{$config->{'main'}->{'pass_through'}};
+my @pass_through = @{$config->{'main'}->{'pass_through'}};	# FIXME: if there's only one it won't be an array ref
 
 my %deny_country;
 
@@ -228,6 +228,7 @@ sub forward_message
 	return(0, 554, 'Error: no valid recipients')
 		unless(scalar(@recipients));
 
+	# FIXME: work out remote IP address and don't scan local sourced e-mails
 	my $email = "From: $sender\n" . join("\n", map { 'To: ' . $_ . "\n" } @recipients) . "\n" . $$data;
 	if($clamav) {
 		if(my $virus = $clamav->scan_scalar(\$email)) {
@@ -258,7 +259,7 @@ sub forward_message
 
 	my $smtp;
 	if($forward_to =~ /(.+):(\d+)/) {
-		$smtp = Net::SMTP->new(PeerAddr => $1, PeerPort => $2);
+		$smtp = Net::SMTP->new(Host => $1, PeerPort => $2);
 	} else {
 		$smtp = Net::SMTP->new($forward_to);
 	}
