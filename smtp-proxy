@@ -278,9 +278,11 @@ sub forward_message
 			$recipient = $usernames{$address[0]->user()};
 
 			if($recipient =~ /^\|.+/) {	# TODO
+				syslog(LOG_INFO, "$recipient: piped output not yet supported, try again later");
 				return(0, 451, "$recipient: piped output not yet supported, try again later");
 			}
 			if($recipient =~ /^>.+/) {	# TODO
+				syslog(LOG_INFO, "$recipient: file output not yet supported, try again later");
 				return(0, 451, "$recipient: file output not yet supported, try again later");
 			}
 			$smtp->recipient("$recipient\@$masquerade_as") or return(0, 471, "Temporary problem sending to $recipient, try again later");
