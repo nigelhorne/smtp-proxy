@@ -225,6 +225,9 @@ sub forward_message
 	my($session, $data) = @_;
 
 	my $sender = $session->get_sender();
+
+	return(0, 554, 'Error: no valid sender') unless(defined($sender));
+
 	my @recipients = $session->get_recipients();
 
 	return(0, 554, 'Error: no valid recipients')
