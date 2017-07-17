@@ -164,7 +164,7 @@ while(my $conn = $server->accept()) {
 
 		if($country) {
 			$country = uc($country);
-			print "$ip: $country\n";
+			# print "$ip: $country\n";
 			if(exists($deny_country{$country})) {
 				$country = code2country($country);
 				warn("We don't accept emails from $country");
@@ -184,16 +184,21 @@ while(my $conn = $server->accept()) {
 		}
 	}
 
+	# print "ok = $ok\n";
 	if($ok) {
 		my $smtp = Net::Server::Mail::SMTP->new( socket => $conn );
 		$smtp->set_callback(RCPT => \&validate_recipient);
 		$smtp->set_callback(DATA => \&forward_message);
+		# print "process\n";
 		$smtp->process();
 	}
+	# print "close\n";
 	$conn->close();
+	# print "bottom of loop\n";
 }
 
 sub validate_recipient {
+	# print "valdate_recipient\n";
 	my($session, $recipient) = @_;
 
 	my @address = Mail::Address->parse($recipient);
@@ -222,6 +227,7 @@ sub validate_recipient {
 
 sub forward_message
 {
+	# print "forward_message\n";
 	my($session, $data) = @_;
 
 	my $sender = $session->get_sender();
@@ -235,23 +241,35 @@ sub forward_message
 
 	# FIXME: work out remote IP address and don't scan local sourced e-mails
 	my $email = "From: $sender\n" . join("\n", map { 'To: ' . $_ . "\n" } @recipients) . "\n" . $$data;
+	# FIXME: do ulimit to get maximum pipe size
+	my @chunks = unpack("(A512)*", $email);	# split into smaller chunks
+	# print scalar(@chunks), " chunks\n";
 	if($clamav) {
+		# print "ClamAV\n";
 		if(my $virus = $clamav->scan_scalar(\$email)) {
 			syslog(LOG_INFO, "ClamAV prevented acceptance");
 			return(0, 554, "Not forwarding your spam or virus");
 		}
 	}
 
-	if($spamassassin && open(my $pout, '|-', $spamassassin)) {
-		print $pout $email;
+	# Gets SIGPIPE after 1024 x 512 bytes
+	if($spamassassin && (scalar(@chunks) < 1024) && open(my $pout, '|-', $spamassassin)) {
+		# print "SpamAssassin: $spamassassin\n";
+		local $SIG{PIPE} = sub { die "SpamAssassin pipe died" };
+		foreach my $chunk(@chunks) {
+			print $pout $chunk;
+		}
+		# print "close\n";
 		close $pout;
 		if($?) {
+			# print "spam blocked\n";
 			syslog(LOG_INFO, "Spamassassin prevented acceptance");
 			return(0, 554, "Not forwarding your spam or virus");
 		}
 	}
 
 	if($config->{'main'}->{'enable_dkim'}) {
+		# print "DKIM\n";
 		my $dkim = Mail::DKIM::Verifier->new();
 		$dkim->PRINT($email);
 		$dkim->CLOSE();
@@ -262,6 +280,7 @@ sub forward_message
 		}
 	}
 
+	# print "Open connection to $forward_to\n";
 	my $smtp = Net::SMTP->new($forward_to);
 
 	if(!defined($smtp)) {
