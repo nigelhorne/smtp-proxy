@@ -198,7 +198,7 @@ while(my $conn = $server->accept()) {
 }
 
 sub validate_recipient {
-	# print "valdate_recipient\n";
+	# print "validate_recipient\n";
 	my($session, $recipient) = @_;
 
 	my @address = Mail::Address->parse($recipient);
@@ -247,8 +247,8 @@ sub forward_message
 	if($clamav) {
 		# print "ClamAV\n";
 		if(my $virus = $clamav->scan_scalar(\$email)) {
-			syslog(LOG_INFO, "ClamAV prevented acceptance");
-			return(0, 554, "Not forwarding your spam or virus");
+			syslog(LOG_INFO, "ClamAV prevented acceptance ($virus)");
+			return(0, 554, 'Not forwarding your spam or virus');
 		}
 	}
 
