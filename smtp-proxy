@@ -295,6 +295,7 @@ sub forward_message
 		if(scalar(@pass_through) && grep($_ eq $recipient, @pass_through)) {
 			syslog(LOG_INFO, "Requested to send passthrough to $recipient");
 			$smtp->recipient($recipient);
+			$count++;
 		} elsif($masquerade_as) {
 			my @address = Mail::Address->parse($recipient);
 			$recipient = $usernames{$address[0]->user()};
