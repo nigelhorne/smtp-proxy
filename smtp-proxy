@@ -239,44 +239,46 @@ sub forward_message
 	return(0, 554, 'Error: no valid recipients')
 		unless(scalar(@recipients));
 
-	# FIXME: work out remote IP address and don't scan local sourced e-mails
-	my $email = "From: $sender\n" . join("\n", map { 'To: ' . $_ . "\n" } @recipients) . "\n" . $$data;
-	# FIXME: do ulimit to get maximum pipe size
-	my @chunks = unpack("(A512)*", $email);	# split into smaller chunks
-	# print scalar(@chunks), " chunks\n";
-	if($clamav) {
-		# print "ClamAV\n";
-		if(my $virus = $clamav->scan_scalar(\$email)) {
-			syslog(LOG_INFO, "ClamAV prevented acceptance ($virus)");
-			return(0, 554, 'Not forwarding your spam or virus');
+	my $ip = $session->{'in'}->sockhost();
+	unless(is_private_ipv4($ip) || is_loopback_ipv4($ip)) {
+		my $email = "From: $sender\n" . join("\n", map { 'To: ' . $_ . "\n" } @recipients) . "\n" . $$data;
+		# FIXME: do ulimit to get maximum pipe size
+		my @chunks = unpack("(A512)*", $email);	# split into smaller chunks
+		# print scalar(@chunks), " chunks\n";
+		if($clamav) {
+			# print "ClamAV\n";
+			if(my $virus = $clamav->scan_scalar(\$email)) {
+				syslog(LOG_INFO, "ClamAV prevented acceptance ($virus)");
+				return(0, 554, 'Not forwarding your spam or virus');
+			}
 		}
-	}
 
-	# Gets SIGPIPE after 1024 x 512 bytes
-	if($spamassassin && (scalar(@chunks) < 1024) && open(my $pout, '|-', $spamassassin)) {
-		# print "SpamAssassin: $spamassassin\n";
-		local $SIG{PIPE} = sub { die "SpamAssassin pipe died" };
-		foreach my $chunk(@chunks) {
-			print $pout $chunk;
+		# Gets SIGPIPE after 1024 x 512 bytes
+		if($spamassassin && (scalar(@chunks) < 1024) && open(my $pout, '|-', $spamassassin)) {
+			# print "SpamAssassin: $spamassassin\n";
+			local $SIG{PIPE} = sub { die "SpamAssassin pipe died" };
+			foreach my $chunk(@chunks) {
+				print $pout $chunk;
+			}
+			# print "close\n";
+			close $pout;
+			if($?) {
+				# print "spam blocked\n";
+				syslog(LOG_INFO, "Spamassassin prevented acceptance");
+				return(0, 554, "Not forwarding your spam or virus");
+			}
 		}
-		# print "close\n";
-		close $pout;
-		if($?) {
-			# print "spam blocked\n";
-			syslog(LOG_INFO, "Spamassassin prevented acceptance");
-			return(0, 554, "Not forwarding your spam or virus");
-		}
-	}
 
-	if($config->{'main'}->{'enable_dkim'}) {
-		# print "DKIM\n";
-		my $dkim = Mail::DKIM::Verifier->new();
-		$dkim->PRINT($email);
-		$dkim->CLOSE();
+		if($config->{'main'}->{'enable_dkim'}) {
+			# print "DKIM\n";
+			my $dkim = Mail::DKIM::Verifier->new();
+			$dkim->PRINT($email);
+			$dkim->CLOSE();
 
-		if($dkim->result() eq 'fail') {
-			syslog(LOG_INFO, "DKIM result: " . $dkim->result());
-			return(0, 554, "Not forwarding your spam or virus");
+			if($dkim->result() eq 'fail') {
+				syslog(LOG_INFO, "DKIM result: " . $dkim->result());
+				return(0, 554, "Not forwarding your spam or virus");
+			}
 		}
 	}
 
