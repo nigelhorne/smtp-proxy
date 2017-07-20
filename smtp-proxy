@@ -28,6 +28,7 @@ use Mail::Address;
 # use IPC::SysV;
 use Sys::Syslog qw(:standard :macros);
 use Config::Auto;
+use ClamAV::Client;
 use Mail::DKIM::Verifier;
 
 # These can also go in the configuration file
