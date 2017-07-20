@@ -101,9 +101,14 @@ if(scalar($config->{'countries'})) {
 # print Data::Dumper->new([\%deny_country])->Dump();
 my $clamav;
 if($config->{'main'}->{'clamav'}) {
-	$clamav = ClamAV::Client->new(socket_name => $config->{'main'}->{'clamav'});
+	my $way = $config->{'main'}->{'clamav'};
+	if($way =~ /^\//) {
+		$clamav = ClamAV::Client->new(socket_name => $way);
+	} else {
+		$clamav = ClamAV::Client->new(socket_host => $way, socket_port => 3310);
+	}
 	if(!$clamav->ping()) {
-		die "Can't talk to ClamAV on " . $config->{'main'}->{'clamav'};
+		die "Can't talk to ClamAV on $way";
 	}
 }
 
