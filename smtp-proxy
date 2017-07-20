@@ -187,6 +187,7 @@ while(my $conn = $server->accept()) {
 	# print "ok = $ok\n";
 	if($ok) {
 		my $smtp = Net::Server::Mail::SMTP->new( socket => $conn );
+		# $smtp->set_callback(MAIL => \&validate_sender);
 		$smtp->set_callback(RCPT => \&validate_recipient);
 		$smtp->set_callback(DATA => \&forward_message);
 		# print "process\n";
@@ -196,6 +197,12 @@ while(my $conn = $server->accept()) {
 	$conn->close();
 	# print "bottom of loop\n";
 }
+
+# sub validate_sender {
+	# my($session, $sender) = @_;
+	# 
+	# print "validate_sender $sender\n";
+# }
 
 sub validate_recipient {
 	# print "validate_recipient\n";
