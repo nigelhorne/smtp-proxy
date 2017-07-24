@@ -45,9 +45,13 @@ my $ca = Config::Auto->new();
 my $config = $ca->parse();
 
 my @local_domains = @{$config->{'main'}->{'local_domains'}};	# FIXME: if there's only one it won't be an array ref
+my @pass_through = @{$config->{'main'}->{'pass_through'}};	# FIXME: if there's only one it won't be an array ref
 my $masquerade_as = $config->{'main'}->{'masquerade_as'};
 my $forward_to = $config->{'main'}->{'forward_to'} or die 'Set forward_to in ' . $ca->file();
-my @pass_through = @{$config->{'main'}->{'pass_through'}};	# FIXME: if there's only one it won't be an array ref
+
+if(!defined($forward_to)) {
+	die "forward_to is not optional, check the configuration file";
+}
 
 my %deny_country;
 
@@ -311,7 +315,7 @@ sub forward_message
 			syslog(LOG_INFO, "Requested to send passthrough to $recipient");
 			$smtp->recipient($recipient);
 			$count++;
-		} elsif($masquerade_as) {
+		} else {
 			my @address = Mail::Address->parse($recipient);
 			$recipient = $usernames{$address[0]->user()};
 
@@ -330,11 +334,13 @@ sub forward_message
 				syslog(LOG_ERR, "Couldn't open $recipient for writing");
 				return(0, 451, "Couldn't open $recipient for writing");
 			}
-			syslog(LOG_INFO, "Requested to send to $recipient\@$masquerade_as");
-			$smtp->recipient("$recipient\@$masquerade_as") or return(0, 471, "Temporary problem sending to $recipient, try again later");
+			if($masquerade_as) {
+				syslog(LOG_INFO, "Requested to send to $recipient\@$masquerade_as");
+				$smtp->recipient("$recipient\@$masquerade_as") or return(0, 471, "Temporary problem sending to $recipient, try again later");
+			} else {
+				$smtp->recipient($recipient) or return(0, 554, "Can't send to $recipient");
+			}
 			$count++;
-		} else {
-			$smtp->recipient($recipient) or return(0, 554, "Can't send to $recipient");
 		}
 	}
 
