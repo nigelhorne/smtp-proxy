@@ -321,7 +321,13 @@ sub forward_message
 			$count++;
 		} else {
 			my @address = Mail::Address->parse($recipient);
-			$recipient = $usernames{$address[0]->user()};
+			if($address[0]->user()) {
+				if(my $rc = $usernames{$address[0]->user()}) {
+					$recipient = $rc;
+				} else {
+					syslog(LOG_WARNING, "Can't find $recipient in the usernames table");
+				}
+			}
 
 			if($recipient =~ /^\|.+/) {	# TODO
 				syslog(LOG_INFO, "$recipient: piped output not yet supported, try again later");
