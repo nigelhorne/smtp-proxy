@@ -321,12 +321,13 @@ sub forward_message
 			$count++;
 		} else {
 			my @address = Mail::Address->parse($recipient);
-			if($address[0]->user()) {
-				if(my $rc = $usernames{$address[0]->user()}) {
+			my $domain = $address[0]->host();
+			if(my $rc = $usernames{$address[0]->user()}) {
+				if($domain && scalar(@local_domains) && (grep($_ eq $domain, @local_domains) > 0)) {
 					$recipient = $rc;
-				} else {
-					syslog(LOG_WARNING, "Can't find $recipient in the usernames table");
 				}
+			} else {
+				syslog(LOG_WARNING, "Can't find $recipient in the usernames table");
 			}
 
 			if($recipient =~ /^\|.+/) {	# TODO
@@ -345,10 +346,17 @@ sub forward_message
 				return(0, 451, "Couldn't open $recipient for writing");
 			}
 			if($masquerade_as) {
-				syslog(LOG_INFO, "Requested to send to $recipient\@$masquerade_as");
-				$smtp->recipient("$recipient\@$masquerade_as") or return(0, 471, "Temporary problem sending to $recipient, try again later");
-			} else {
+				if(scalar(@local_domains) && (grep($_ eq $domain, @local_domains) > 0)) {
+					syslog(LOG_INFO, "Requested to send to $recipient\@$masquerade_as");
+					$smtp->recipient("$recipient\@$masquerade_as") or return(0, 471, "Temporary problem sending to $recipient, try again later");
+				} else {
+					syslog(LOG_INFO, "Requested to send to $recipient");
+					$smtp->recipient($recipient) or return(0, 471, "Temporary problem sending to $recipient, try again later");
+				}
+			} elsif(is_private_ipv4($ip) || is_loopback_ipv4($ip)) {
 				$smtp->recipient($recipient) or return(0, 554, "Can't send to $recipient");
+			} else {
+				return(0, 554, "You don't have permission to send e-mail to $recipient");
 			}
 			$count++;
 		}
