@@ -355,6 +355,7 @@ sub forward_message
 					$smtp->recipient($recipient) or return(0, 471, "Temporary problem sending to $recipient, try again later");
 				}
 			} elsif(is_private_ipv4($ip) || is_loopback_ipv4($ip)) {
+				syslog(LOG_INFO, "Send local e-mail to $recipient");
 				$smtp->recipient($recipient) or return(0, 554, "Can't send to $recipient");
 			} else {
 				return(0, 554, "You don't have permission to send e-mail to $recipient");
