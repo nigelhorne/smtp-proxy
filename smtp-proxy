@@ -131,10 +131,14 @@ while(my $conn = $server->accept()) {
 	};
 
 	my $ok = 1;
-	# print "Connection from ", $conn->sockhost(), "\n";
-	syslog(LOG_INFO, "Connection from " . $conn->sockhost() . "\n");
+	# print "Connection from ", $conn->peerhost(), "\n";
+	syslog(LOG_INFO, "Connection from " . $conn->peerhost() . "\n");
 
-	my $ip = $conn->sockhost();
+	if(fork == 0) {
+		next;
+	}
+
+	my $ip = $conn->peerhost();
 	if(is_private_ipv4($ip) || is_loopback_ipv4($ip)) {
 		$ok = 1;
 	} elsif(scalar(keys(%deny_country))) {
@@ -177,7 +181,7 @@ while(my $conn = $server->accept()) {
 			# print "$ip: $country\n";
 			if(exists($deny_country{$country})) {
 				$country = code2country($country);
-				warn("We don't accept emails from $country");
+				# warn("We don't accept emails from $country");
 				syslog(LOG_INFO, "Blocked e-mail from $country");
 				print $conn 554, "5.7.1", "We don't accept emails from $country\n";
 				$ok = 0;
@@ -221,7 +225,7 @@ sub validate_recipient {
 
 	my @address = Mail::Address->parse($recipient);
 
-	my $ip = $session->{'in'}->sockhost();
+	my $ip = $session->{'in'}->peerhost();
 	if(is_private_ipv4($ip) || is_loopback_ipv4($ip)) {
 		return(1);
 	}
@@ -261,7 +265,7 @@ sub forward_message
 	return(0, 554, 'Error: no valid recipients')
 		unless(scalar(@recipients));
 
-	my $ip = $session->{'in'}->sockhost();
+	my $ip = $session->{'in'}->peerhost();
 	unless(is_private_ipv4($ip) || is_loopback_ipv4($ip)) {
 		my $email = "From: $sender\n" . join("\n", map { 'To: ' . $_ . "\n" } @recipients) . "\n" . $$data;
 		# FIXME: do ulimit to get maximum pipe size
