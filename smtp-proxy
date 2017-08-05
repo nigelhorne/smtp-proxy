@@ -87,6 +87,7 @@ if(open(my $aliases, '<', '/etc/aliases')) {
 			}
 		}
 	}
+	close $aliases;
 }
 
 if($config->{'aliases'}) {
