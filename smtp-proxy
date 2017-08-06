@@ -123,6 +123,8 @@ my $spamassassin = $config->{'main'}->{'spamassassin'};
 my $server = IO::Socket::INET->new(Listen => 1, LocalPort => 25, ReuseAddr => 1) or
 	die ("Can't bind to port 25");
 
+$SIG{"CHLD"} = 'IGNORE';	# Automatically reap children
+
 while(my $conn = $server->accept()) {
 	local $SIG{TERM} = $SIG{INT} = $SIG{HUP} = sub {
 		close $conn;
@@ -212,6 +214,7 @@ while(my $conn = $server->accept()) {
 	# print "close\n";
 	$conn->close();
 	# print "bottom of loop\n";
+	exit;
 }
 
 # sub validate_sender {
