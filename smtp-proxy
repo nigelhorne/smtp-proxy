@@ -135,7 +135,7 @@ while(my $conn = $server->accept()) {
 	# print "Connection from ", $conn->peerhost(), "\n";
 	syslog(LOG_INFO, "Connection from " . $conn->peerhost() . "\n");
 
-	if(fork == 0) {
+	if(fork > 0) {
 		next;
 	}
 
