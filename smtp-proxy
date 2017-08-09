@@ -147,7 +147,7 @@ while(my $conn = $server->accept()) {
 		while (1) {
 			# Deal with any children that the automatic repeaper has yet to clean up
 			my $child = waitpid(-1, POSIX::WNOHANG);
-			last if($child == -1);	# No child has died
+			last if($child <= 0);	# No child has died
 		}
 		next;
 	}
