@@ -131,10 +131,8 @@ while(my $conn = $server->accept()) {
 		close $conn;
 		$server = undef;
 		syslog(LOG_INFO, 'Shutting down');
-		while (1) {
-			# Deal with any children that the automatic repeaper has yet to clean up
-			my $child = waitpid(-1, 0);
-			last if($child == -1);	# No child left
+		# Deal with any children that the automatic repeaper has yet to clean up
+		while(waitpid(-1, 0) > 0) {
 		}
 		exit(0);
 	};
@@ -144,10 +142,8 @@ while(my $conn = $server->accept()) {
 	syslog(LOG_INFO, "Connection from " . $conn->peerhost() . "\n");
 
 	if(fork > 0) {
-		while (1) {
-			# Deal with any children that the automatic repeaper has yet to clean up
-			my $child = waitpid(-1, POSIX::WNOHANG);
-			last if($child <= 0);	# No child has died
+		# Deal with any children that the automatic repeaper has yet to clean up
+		while(waitpid(-1, POSIX::WNOHANG) > 0) {
 		}
 		next;
 	}
