@@ -131,6 +131,7 @@ while(my $conn = $server->accept()) {
 		close $conn;
 		$server = undef;
 		syslog(LOG_INFO, 'Shutting down');
+		closelog();
 		# Deal with any children that the automatic reaper has yet to clean up
 		while(waitpid(-1, 0) > 0) {
 		}
