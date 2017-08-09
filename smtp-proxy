@@ -30,6 +30,7 @@ use Sys::Syslog qw(:standard :macros);
 use Config::Auto;
 use ClamAV::Client;
 use Mail::DKIM::Verifier;
+use POSIX();
 
 # These can also go in the configuration file
 my %usernames = (
@@ -123,14 +124,19 @@ my $spamassassin = $config->{'main'}->{'spamassassin'};
 my $server = IO::Socket::INET->new(Listen => 1, LocalPort => 25, ReuseAddr => 1) or
 	die ("Can't bind to port 25");
 
-$SIG{"CHLD"} = 'IGNORE';	# Automatically reap children
+$SIG{'CHLD'} = 'IGNORE';	# Automatically reap children
 
 while(my $conn = $server->accept()) {
 	local $SIG{TERM} = $SIG{INT} = $SIG{HUP} = sub {
 		close $conn;
 		$server = undef;
 		syslog(LOG_INFO, 'Shutting down');
-		exit(1);
+		while (1) {
+			# Deal with any children that the automatic repeaper has yet to clean up
+			my $child = waitpid(-1, 0);
+			last if($child == -1);	# No child left
+		}
+		exit(0);
 	};
 
 	my $ok = 1;
@@ -138,6 +144,11 @@ while(my $conn = $server->accept()) {
 	syslog(LOG_INFO, "Connection from " . $conn->peerhost() . "\n");
 
 	if(fork > 0) {
+		while (1) {
+			# Deal with any children that the automatic repeaper has yet to clean up
+			my $child = waitpid(-1, POSIX::WNOHANG);
+			last if($child == -1);	# No child has died
+		}
 		next;
 	}
 
@@ -145,11 +156,12 @@ while(my $conn = $server->accept()) {
 	if(is_private_ipv4($ip) || is_loopback_ipv4($ip)) {
 		$ok = 1;
 	} elsif(scalar(keys(%deny_country))) {
-		my $country = $gi->country_code_by_addr($ip);
+		my $country = $cache->get($ip);
 
-		unless($country) {
-			$country = $cache->get($ip);
+		if($gi && !defined($country)) {
+			$country = $gi->country_code_by_addr($ip);
 		}
+
 		unless(defined($country)) {
 			# print "$ip: MISS\n";
 			my $whois = Net::Whois::IP::whoisip_query($ip);
