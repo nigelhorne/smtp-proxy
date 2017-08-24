@@ -216,7 +216,7 @@ while(my $conn = $server->accept()) {
 		}
 	}
 
-	sleep(1);
+	sleep(3);
 	# print "ok = $ok\n";
 	if($ok) {
 		my $smtp = Net::Server::Mail::SMTP->new( socket => $conn );
