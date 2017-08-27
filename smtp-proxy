@@ -138,9 +138,16 @@ while(my $conn = $server->accept()) {
 		exit(0);
 	};
 
+	my $ip = $conn->peerhost();
+
+	if(!defined($ip)) {
+		syslog(LOG_WARN, "Can't determine IP address of client");
+		next;
+	}
+
 	my $ok = 1;
-	# print "Connection from ", $conn->peerhost(), "\n";
-	syslog(LOG_INFO, 'Connection from ' . $conn->peerhost());
+	# print "Connection from $ip\n";
+	syslog(LOG_INFO, "Connection from $ip");
 
 	if(fork > 0) {
 		# Deal with any children that the automatic reaper has yet to clean up
@@ -155,7 +162,6 @@ while(my $conn = $server->accept()) {
 	};
 	alarm(300);
 
-	my $ip = $conn->peerhost();
 	if(is_private_ipv4($ip) || is_loopback_ipv4($ip)) {
 		$ok = 1;
 	} elsif(scalar(keys(%deny_country))) {
