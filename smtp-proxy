@@ -141,7 +141,7 @@ while(my $conn = $server->accept()) {
 	my $ip = $conn->peerhost();
 
 	if(!defined($ip)) {
-		syslog(LOG_WARN, "Can't determine IP address of client");
+		syslog(LOG_WARNING, "Can't determine IP address of client");
 		next;
 	}
 
