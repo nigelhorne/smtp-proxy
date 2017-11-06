@@ -187,7 +187,7 @@ while(my $conn = $server->accept()) {
 					warn $@;
 					$country = undef;
 					# Create new object
-					my $iana = Net::Whois::IANA->new();
+					$iana = Net::Whois::IANA->new();
 				} else {
 					$country = $iana->country();
 					if($country !~ /^[A-Z]{2}$/i) {
