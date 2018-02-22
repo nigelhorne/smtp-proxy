@@ -43,7 +43,7 @@ Then run
     systemctl enable smtp-proxy.service
     systemctl start smtp-proxy.service
 
-# TODO 
+# TODO
 - Verify SPF (needs a means within Net::Server::Mail::SMTP to get both the sender and the connecting IP address in the same
   callback);
 - Support TCP connections to ClamAV;
