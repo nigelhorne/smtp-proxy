@@ -3,7 +3,7 @@
 # Simple SMTP Proxy
 
 # Author Nigel Horne: njh@bandsman.co.uk
-# Copyright (C) 2017, Nigel Horne
+# Copyright (C) 2017-2018, Nigel Horne
 
 # Usage is subject to licence terms.
 # The licence terms of this software are as follows:
@@ -31,6 +31,8 @@ use Config::Auto;
 use ClamAV::Client;
 use Mail::DKIM::Verifier;
 use POSIX();
+
+our $VERSION = '0.01';
 
 # These can also go in the configuration file
 my %usernames = (
