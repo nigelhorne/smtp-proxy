@@ -32,7 +32,7 @@ use ClamAV::Client;
 use Mail::DKIM::Verifier;
 use POSIX();
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 # These can also go in the configuration file
 my %usernames = (
@@ -151,6 +151,8 @@ while(my $conn = $server->accept()) {
 	# print "Connection from $ip\n";
 	syslog(LOG_INFO, "Connection from $ip");
 
+	sleep(1);
+
 	if(fork > 0) {
 		# Deal with any children that the automatic reaper has yet to clean up
 		while(waitpid(-1, POSIX::WNOHANG) > 0) {
@@ -224,7 +226,7 @@ while(my $conn = $server->accept()) {
 		}
 	}
 
-	sleep(3);
+	sleep(2);
 	# print "ok = $ok\n";
 	if($ok) {
 		my $smtp = Net::Server::Mail::SMTP->new( socket => $conn );
