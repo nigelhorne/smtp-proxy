@@ -3,7 +3,7 @@
 # Simple SMTP Proxy
 
 # Author Nigel Horne: njh@bandsman.co.uk
-# Copyright (C) 2017-2018, Nigel Horne
+# Copyright (C) 2017-2019, Nigel Horne
 
 # Usage is subject to licence terms.
 # The licence terms of this software are as follows:
@@ -50,7 +50,7 @@ my $config = $ca->parse();
 my @local_domains = @{$config->{'main'}->{'local_domains'}};	# FIXME: if there's only one it won't be an array ref
 my @pass_through = @{$config->{'main'}->{'pass_through'}};	# FIXME: if there's only one it won't be an array ref
 my $masquerade_as = $config->{'main'}->{'masquerade_as'};
-my $forward_to = $config->{'main'}->{'forward_to'} or die 'Set forward_to in ' . $ca->file();
+my $forward_to = $config->{'main'}->{'forward_to'} or die 'Set forward_to in ', $ca->file();
 
 if(!defined($forward_to)) {
 	die "forward_to is not optional, check the configuration file";
