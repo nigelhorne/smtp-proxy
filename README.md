@@ -20,7 +20,9 @@ With this you can now set-up your home machine as a secondary MX.
 
 # Installation
 
-To install, simply put this script into /usr/local/sbin/smtp-proxy
+To install, simply put this script into /usr/local/sbin/smtp-proxy,
+copy smtp-proxy.config into /usr/local/etc/smtp-proxy.config and
+amend the config file to taste.
 
 If you are using systemd, copy and paste this content into
 /etc/systemd/system/smtp-proxy.service
@@ -54,7 +56,7 @@ Then run
 Nigel Horne, `<njh at bandsman.co.uk>`
 
 # LICENSE AND COPYRIGHT
-Copyright (C) 2017, Nigel Horne
+Copyright (C) 2017-2020, Nigel Horne
 
 Usage is subject to licence terms. The licence terms of this software are as follows:
 
