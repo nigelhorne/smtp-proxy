@@ -24,6 +24,8 @@ To install, simply put this script into /usr/local/sbin/smtp-proxy,
 copy smtp-proxy.config into /usr/local/etc/smtp-proxy.config and
 amend the config file to taste.
 
+  apt install libnet-smtp-server-perl
+
 If you are using systemd, copy and paste this content into
 /etc/systemd/system/smtp-proxy.service
 
