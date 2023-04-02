@@ -3,7 +3,7 @@
 # Simple SMTP Proxy
 
 # Author Nigel Horne: njh@bandsman.co.uk
-# Copyright (C) 2017-2019, Nigel Horne
+# Copyright (C) 2017-2023, Nigel Horne
 
 # Usage is subject to licence terms.
 # The licence terms of this software are as follows:
@@ -14,6 +14,8 @@
 
 use strict;
 use warnings;
+use autodie qw(:all);
+
 use IO::Socket::INET;
 use Net::Server::Mail::SMTP;
 use Net::SMTP;
@@ -124,7 +126,7 @@ if($config->{'main'}->{'clamav'}) {
 my $spamassassin = $config->{'main'}->{'spamassassin'};
 
 my $server = IO::Socket::INET->new(Listen => 1, LocalPort => 25, ReuseAddr => 1) or
-	die ("Can't bind to port 25");
+	die "Can't bind to port 25";
 
 $SIG{'CHLD'} = 'IGNORE';	# Automatically reap children
 
