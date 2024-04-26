@@ -3,7 +3,7 @@
 # Simple SMTP Proxy
 
 # Author Nigel Horne: njh@bandsman.co.uk
-# Copyright (C) 2017-2023, Nigel Horne
+# Copyright (C) 2017-2024, Nigel Horne
 
 # Usage is subject to licence terms.
 # The licence terms of this software are as follows:
@@ -33,6 +33,21 @@ use Config::Auto;
 use ClamAV::Client;
 use Mail::DKIM::Verifier;
 use POSIX();
+
+BEGIN {
+	$SIG{__WARN__} = sub {
+		my $warning = shift;
+		if(($warning =~ /^Use of uninitialized value/) ||
+		   ($warning =~ /Wide/) ||
+		   ($warning =~ /masks earlier declaration in same scope/) ||
+		   ($warning =~ /: attempt to add consecutive punctuation/) ||
+		   ($warning =~ /isn't numeric in numeric eq /i)) {
+			die $warning;
+		}
+		utf8::decode($warning);
+		warn $warning;
+	};
+}
 
 our $VERSION = '0.02';
 
