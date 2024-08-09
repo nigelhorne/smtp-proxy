@@ -70,7 +70,7 @@ my $masquerade_as = $config->{'main'}->{'masquerade_as'};
 my $forward_to = $config->{'main'}->{'forward_to'} or die 'Set forward_to in ', $ca->file();
 
 if(!defined($forward_to)) {
-	die "forward_to is not optional, check the configuration file";
+	die 'forward_to is not optional, check the configuration file';
 }
 
 my %deny_country;
